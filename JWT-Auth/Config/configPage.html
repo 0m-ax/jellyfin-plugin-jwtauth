@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>JWT</title>
+</head>
+<body>
+    <div data-role="page" class="page type-interior pluginConfigurationPage esqConfigurationPage">
+        <div data-role="content">
+            <div class="content-primary">
+                <form class="esqConfigurationForm">
+                    <div class="verticalSection verticalSection-extrabottompadding">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h2 class="sectionTitle">JWT Settings:</h2>
+                            <a is="emby-button" class="raised button-alt headerHelpButton" target="_blank" href="https://github.com/jellyfin/jellyfin-plugin-JWTauth">${Help}</a>
+                        </div>
+                        <p><i>Note:</i> Making changes to this configuration requires a restart of Jellyfin.</p>
+                        <div class="verticalSection" is="emby-collapse" title="JWT Server Settings">
+                            <div class="collapseContent">
+                                <div class="inputContainer">
+                                    <input is="emby-input" type="text" id="txtAudience" required placeholder="jellyfin" label="Audience" />
+                                    <div class="fieldDescription">TODO</div>
+                                </div>
+                                <div class="inputContainer">
+                                    <input is="emby-input" type="text" id="txtIssuer" required placeholder="" label="Issuer" />
+                                    <div class="fieldDescription">TODO</div>
+                                </div>
+                                <div class="inputContainer">
+                                    <input is="emby-input" type="text" id="txtKey" required placeholder="" label="Key" />
+                                    <div class="fieldDescription">TODO</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="verticalSection" is="emby-collapse" title="Jellyfin User Settings">
+                            <div class="collapseContent">
+                                <div class="checkboxContainer checkboxContainer-withDescription">
+                                    <label>
+                                        <input type="checkbox" is="emby-checkbox" id="chkEnableUserCreation" />
+                                        <span>Enable User Creation</span>
+                                    </label>
+                                    <div class="fieldDescription checkboxFieldDescription">Enable user creation in Jellyfin on successful JWT authentication. User must first exist in JWT.</div>
+                                </div>
+                                <div class="folderAccessContainer">
+                                    <h2>${HeaderLibraryAccess}</h2>
+                                    <label class="checkboxContainer">
+                                        <input type="checkbox" is="emby-checkbox" id="chkEnableAllFolders" />
+                                        <span>${OptionEnableAccessToAllLibraries}</span>
+                                    </label>
+                                    <div class="folderAccessListContainer">
+                                        <div class="folderAccess">
+                                        </div>
+                                        <div class="fieldDescription">${LibraryAccessHelp}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <button is="emby-button" type="submit" data-theme="b" class="raised button-submit block">
+                                <span>${Save}</span>
+                            </button>
+                            <button is="emby-button" type="button" class="raised button-cancel block btnCancel" onclick="history.back();">
+                                <span>${ButtonCancel}</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
+        <script type="text/javascript">
+            var JWTConfigurationPage = {
+                pluginUniqueId: "8aec4e04-77ea-4c5f-bd7f-64d178324cd5",
+                txtAudience: document.querySelector("#txtAudience"),
+                txtIssuer: document.querySelector("#txtIssuer"),
+                txtKey: document.querySelector("#txtKey"),
+                chkEnableUserCreation: document.querySelector("#chkEnableUserCreation"),
+                chkEnableAllFolders: document.querySelector('#chkEnableAllFolders'),
+                folderAccessList: document.querySelector('.folderAccess'),
+            };
+
+            document.querySelector('.esqConfigurationPage').addEventListener("pageshow", function () {
+                // start with all groups expanded
+                document.querySelectorAll("button#expandButton").forEach(button => button.click());
+
+                Dashboard.showLoadingMsg();
+
+                window.ApiClient.getPluginConfiguration(JWTConfigurationPage.pluginUniqueId).then(function (config) {
+                    JWTConfigurationPage.txtAudience.value = config.Audience;
+                    JWTConfigurationPage.txtIssuer.value = config.Issuer;
+                    JWTConfigurationPage.txtKey.value = config.Key;
+                    JWTConfigurationPage.chkEnableUserCreation.checked = config.CreateUsersFromJWT;
+                    config.EnableAllFolders = config.EnableAllFolders || false;
+                    JWTConfigurationPage.chkEnableAllFolders.checked = config.EnableAllFolders;
+                    /* Default to empty array if Enabled Folders is not set */
+                    config.EnabledFolders = config.EnabledFolders || [];
+                    loadMediaFolders(config).then(() => {
+                      Dashboard.hideLoadingMsg();
+                    });
+                });
+
+                const updateFolderListVisibility = () => {
+                    document.querySelector('.folderAccessContainer').style.display =
+                        JWTConfigurationPage.chkEnableUserCreation.checked ? 'block' : 'none';
+                }
+
+                function loadMediaFolders(config) {
+                  if (!JWTConfigurationPage.folderAccessList) {
+                    return Promise.resolve();
+                  }
+
+                  return window.ApiClient.getJSON(window.ApiClient.getUrl('Library/MediaFolders', {
+                    IsHidden: false
+                  })).then((mediaFolders) => {
+                    let html = '';
+                    html += '<h3 class="checkboxListLabel">${HeaderLibraries}</h3>';
+                    html += '<div id="folderList" class="checkboxList paperList checkboxList-paperList">';
+
+                    if (Array.isArray(mediaFolders.Items)) {
+                      mediaFolders.Items.forEach((folder) => {
+                        const isChecked = config.EnableAllFolders || config.EnabledFolders.indexOf(folder.Id) != -1;
+                        const checkedAttribute = isChecked ? ' checked' : '';
+                        html += '<label><input type="checkbox" is="emby-checkbox" class="chkFolder" data-id="' +
+                          folder.Id + '" ' + checkedAttribute + '><span>' + folder.Name +
+                            '</span></label>';
+                      });
+                    }
+
+                    html += '</div>';
+                    JWTConfigurationPage.folderAccessList.innerHTML = html;
+                    /* Only show these options if Jellyfin user creation is enabled on successful JWT authentication */
+                    updateFolderListVisibility();
+                    JWTConfigurationPage.chkEnableUserCreation.addEventListener('change', updateFolderListVisibility);
+                    /* Set up event handlers for tracking folder enabling/disabling */
+                    Array.prototype.forEach.call(document.querySelectorAll('#folderList input'), (folder) => {
+                      folder.addEventListener('change', (event) => {
+                        const folders = document.querySelectorAll('#folderList input');
+                        let count = 0;
+                        Array.prototype.forEach.call(folders, folder => folder.checked && count++);
+                        JWTConfigurationPage.chkEnableAllFolders.checked = count == folders.length;
+                      });
+                    });
+                    JWTConfigurationPage.chkEnableAllFolders.addEventListener('change', (event) => {
+                      Array.prototype.forEach.call(document.querySelectorAll('#folderList input'), (folder) => {
+                        folder.checked = event.currentTarget.checked;
+                      });
+                    });
+                  });
+                }
+            });
+
+            var form = document.querySelector(".esqConfigurationForm");
+            form.addEventListener("submit", function(e){
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+
+                window.ApiClient.getPluginConfiguration(JWTConfigurationPage.pluginUniqueId).then(function (config) {
+                    config.Issuer = JWTConfigurationPage.txtIssuer.value;
+                    config.Audience = JWTConfigurationPage.txtAudience.value;
+                    config.Key = JWTConfigurationPage.txtKey.value;
+                    config.CreateUsersFromJWT = JWTConfigurationPage.chkEnableUserCreation.checked;
+                    /* Map the set of checked input items to an array of library Id's */
+                    config.EnableAllFolders = JWTConfigurationPage.chkEnableAllFolders.checked || false;
+                    let folders = document.querySelectorAll('#folderList input');
+                    folders = Array.prototype.filter.call(folders, folder => folder.checked)
+                      .map(folder => folder.getAttribute("data-id"));
+                    config.EnabledFolders = folders;
+                    window.ApiClient.updatePluginConfiguration(JWTConfigurationPage.pluginUniqueId, config).then(Dashboard.processPluginConfigurationUpdateResult);
+                });
+
+                // Disable default form submission
+                return false;
+            }); 
+        </script>
+    </div>
+</body>
+</html>

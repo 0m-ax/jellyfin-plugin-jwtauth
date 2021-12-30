@@ -1,0 +1,15 @@
+name: "JWT Authentication"
+guid: "8aec4e04-77ea-4c5f-bd7f-64d178324cd5"
+imageUrl: "https://repo.jellyfin.org/releases/plugin/images/jellyfin-plugin-ldapauth.png"
+version: "0"
+targetAbi: "10.8.0.0"
+framework: "net6.0"
+owner: "jellyfin"
+overview: "Authenticate users against an JWT password"
+description: |
+  Authenticate your Jellyfin users against an JWT in the password field, and optionally create users who do not yet exist automatically.
+category: "Authentication"
+artifacts:
+  - "JWT-Auth.dll"
+  - "JWT.dll"
+changelog: ""
