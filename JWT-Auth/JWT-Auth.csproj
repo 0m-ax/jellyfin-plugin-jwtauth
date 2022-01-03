@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="Jellyfin.Controller" Version="10.*-*" />
-    <PackageReference Include="JWT" Version="8.7.0" />
+    <PackageReference Include="JWT" Version="8.8.1" />
   </ItemGroup>
 
   <!-- Code Analyzers-->
